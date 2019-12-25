@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>电子画板</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+</head>
+<style>
+    @font-face {
+        font-family: 'iconfont';
+        /* project id 1580545 */
+        src: url('https://at.alicdn.com/t/font_1580545_97ftmamxgsf.eot');
+        src: url('https://at.alicdn.com/t/font_1580545_97ftmamxgsf.eot?#iefix') format('embedded-opentype'),
+            url('https://at.alicdn.com/t/font_1580545_97ftmamxgsf.woff2') format('woff2'),
+            url('https://at.alicdn.com/t/font_1580545_97ftmamxgsf.woff') format('woff'),
+            url('https://at.alicdn.com/t/font_1580545_97ftmamxgsf.ttf') format('truetype'),
+            url('https://at.alicdn.com/t/font_1580545_97ftmamxgsf.svg#iconfont') format('svg');
+    }
+
+    html,
+    body {
+        padding: 0 6px;
+        margin: 0;
+        background: #ccc;
+    }
+
+    .tool {
+        width: 100%;
+        min-height: 60px;
+        padding: 0 20px;
+        display: flex;
+        flex-direction: row;
+    }
+
+    .tool .item {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 16px;
+    }
+
+    .tool .selected {
+        background: #2c3e50;
+        color: white;
+        border-radius: 6px;
+    }
+
+    .icon {
+        font-family: "iconfont";
+        font-size: 36px;
+    }
+</style>
+
+<body>
+    <div id="app">
+        <div class="container">
+            <canvas id="canvas"></canvas>
+            <div class="tool">
+                <!--放置tool工具-->
+                <div :class="defaultSelectd==item.id?'item selected':'item'" v-for="(item,index) in toolList"
+                    :Key="index" @click="changeToolSelected(item.id)">
+                    <label for="" class="icon" v-html="item.icon"></label>
+                    <label for="">{{item.title}}</label>
+                </div>
+                <div class="item">
+                    <label for="" class="icon">
+                        <el-color-picker v-model="color1" @change="colorChange"></el-color-picker>
+                    </label>
+                    <label for="">选择颜色</label>
+                </div>
+                <div class="item" @click.stop="exportImage">
+                    <label for="" class="icon">
+                        &#xe960;
+                    </label>
+                    <label for="">下载图片</label>
+                </div>
+            </div>
+            <div class="block">
+
+            </div>
+        </div>
+    </div>
+</body>
+<!-- 引入组件库 -->
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data: function () {
+            return {
+                canvasBG:"#2c3e50",
+                isClear: false, //橡皮檫状态
+                defaultSelectd: 1,
+                visible: false,
+                color1: "#F5FF40",
+                sc_w: 0,
+                sc_h: 0,
+                toolHeight: 0,
+                canvas: null,
+                ctx: null,
+                mouse_start: false,
+                toolList: [
+                    {
+                        id: 1,
+                        title: "铅笔", //标题
+                        icon: "&#xe64b;", //图标
+                        operateCode: "" //操作代码
+                    },
+                    {
+                        id: 2,
+                        title: "橡皮檫", //标题
+                        icon: "&#xe694;", //图标
+                        operateCode: "" //操作代码
+                    }
+                ]
+            }
+        },
+        methods: {
+            exportImage(){
+              let dataurl=this.canvas.toDataURL("image/png");
+              let a=document.createElement('a');
+              a.download="picture";
+              a.href=dataurl;
+              a.dataset.downloadurl=["image/png",a.download,a.href].join(':');
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            },
+            changeToolSelected(id) {
+                if (this.defaultSelectd != id) {
+                    this.defaultSelectd = id;
+                    this.isClear = id == 2 ? true : false;
+                    console.log(this.isClear)
+                }
+            },
+            colorChange(val) {
+                console.log(val)
+                this.color1 = val;
+
+            },
+            // 橡皮檫操作
+            clear(x, y) {
+                this.ctx.beginPath();
+                this.ctx.arc(x,y,20,0,Math.PI*2,true);
+                this.ctx.fillStyle=this.canvasBG;
+                this.ctx.fill();
+            },
+            loadCanvas() {
+
+                this.canvas.width = this.sc_w;
+                this.canvas.height = this.sc_h - this.toolHeight;
+                this.ctx.fillStyle =this.canvasBG;
+                this.ctx.fillRect(0, 0, this.sc_w, this.sc_h);
+                this.canvas.addEventListener("mousedown", (e) => {
+                    console.info("down")
+                    this.mouse_start = true;
+                    if (!this.isClear) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(e.offsetX, e.offsetY)
+                    }
+                    else{
+                        
+                    }
+                })
+                this.canvas.addEventListener("mouseup", (e) => {
+                    console.info("up")
+                    this.mouse_start = false;
+
+
+                })
+                this.canvas.addEventListener("mousemove", (e) => {
+                    // 橡皮檫
+
+                    if (this.mouse_start) {
+                        if (!this.isClear) {
+                            this.canvas.style.cursor = "crosshair";
+                            this.ctx.lineTo(e.offsetX, e.offsetY);
+                            this.ctx.strokeStyle = `${this.color1}`;
+                            console.log("画笔颜色", this.color1);
+                            this.ctx.stroke();
+
+                        }
+                        else {
+                            this.canvas.style.cursor = "text";
+                            this.clear(e.offsetX, e.offsetY);
+                        }
+                    }
+
+                })
+            }
+        },
+        mounted() {
+            this.sc_w = document.documentElement.clientWidth;
+            this.sc_h = document.documentElement.clientHeight;
+            this.toolHeight = document.querySelector(".tool").clientHeight;
+            this.canvas = document.getElementById("canvas");
+            this.ctx = canvas.getContext("2d");
+            this.loadCanvas();
+        }
+    })
+</script>
+
+</html>
